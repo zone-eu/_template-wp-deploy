@@ -1,6 +1,8 @@
 Requires existing wp-cli in path.
 Repos from github are used - requires that user's key is valid in github.
 
+Just a sample edit
+
 ## INSTALLING
 + create database & user
 + import database
