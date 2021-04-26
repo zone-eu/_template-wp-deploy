@@ -1,0 +1,7 @@
+<IfModule mod_headers.c>
+
+    Header always set Content-Security-Policy "default-src none; style-src https://*.bootstrapcdn.com/"
+
+</IfModule>
+
+Require all granted

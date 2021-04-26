@@ -1,0 +1,365 @@
+#!/usr/bin/env bash
+# for debug output, uncomment:
+#set -x
+
+# always start in script's directory, exit if fails
+cd "${0%/*}" || exit 1
+
+# set (relative) locations
+
+dir="$(pwd)"
+base="$(dirname $dir)"
+wp="$base/wordpress"
+deploy="${PWD##*/}"
+
+function help {
+
+	echo "
+Common deployment / update / etc handler for WordPress installations  -v 0.1 2021-04-25 / peeter@zone.ee
+
+Usage (after customizing .env):
+
+init some-db-dump.sql - initialize WP, including loading SQL
+update                - update from GIT
+update-wp             - update WP (core, plugins, languages)
+wp-cron               - run cron for standalone WP
+wp-cron-multisite     - run cron for all WP multisite sites
+
+
+"
+  exit 1
+}
+
+
+function init() {
+
+  # make sure everything is safe & sound
+
+  if [ "$(ls -A $wp)" ]; then
+       echo "$wp folder not empty - aborting initialization, please configure manually!"
+       exit 1
+  fi
+
+  if [ -z "$1" ]
+  then
+        echo "You have not provided SQL dump as first parameter. Expecting the DB to be already imported."
+  else
+        echo "Going to reset DB and import from $1"
+  fi
+
+  read -p "Does than seem OK? Answer Y/y to continue: " -n 1 -r
+  echo
+  if [[ ! $REPLY =~ ^[Yy]$ ]]
+  then
+    echo "Roger that, exiting!"
+    exit 1
+  fi
+
+  # set GIT global options
+
+  gitconfig
+
+  # update gitmodules etc
+
+  gitget
+
+  # prepare WP install and folders for static content
+
+  mkdir -p "$base/wordpress"
+  mkdir -p "$base/uploads"
+  mkdir -p "$base/static"
+  mkdir -p "$base/tmp"
+
+  wp core download
+  wp config create --dbname=$DB_NAME --dbuser=$DB_USER --dbpass=$DB_PASSWORD --dbhost=$DB_HOST --dbprefix=$DB_PREFIX
+  wp config set DISABLE_WP_CRON $DISABLE_WP_CRON --raw --type=constant
+  wp config set DISALLOW_FILE_EDIT $DISALLOW_FILE_EDIT --raw --type=constant
+  wp config set DISALLOW_FILE_MODS $DISALLOW_FILE_MODS --raw --type=constant
+  wp config set WP_DEBUG $WP_DEBUG --raw --type=constant
+  wp config set WP_MEMORY_LIMIT $WP_MEMORY_LIMIT --type=constant
+
+  if [ "$MULTISITE" == "true" ]
+  then
+    wp config set MULTISITE true --raw --type=constant
+    wp config set DOMAIN_CURRENT_SITE $DOMAIN_CURRENT_SITE --type=constant
+    wp config set SUBDOMAIN_INSTALL true --raw --type=constant
+    wp config set PATH_CURRENT_SITE / --type=constant
+    wp config set SITE_ID_CURRENT_SITE 1 --raw --type=constant
+    wp config set BLOG_ID_CURRENT_SITE 1 --raw --type=constant
+    wp config set NOBLOGREDIRECT $ZONE_WP_PROD_HOME --type=constant
+  fi
+
+  mkdir -p "$wp/wp-content/mu-plugins"
+  mkdir -p "$wp/wp-content/languages/plugins"
+  mkdir -p "$wp/wp-content/languages/themes"
+
+  cp ./conf/favicon.ico $wp
+  cp ./conf/.htaccess $wp
+
+  init-symlinks
+
+  if [ -z "$1" ]
+  then
+    echo "Using existing DB."
+  else
+    echo "Resetting DB and importing dump..."
+    wp db reset --yes
+    wp db import "$1"
+  fi
+
+  init-wp-plugins
+
+  init-wp-languages
+
+  echo "
+WP has been prepared!
+
+- replace URIs:
+  wp search-replace 'prelive.example.com' 'example.com' --network
+
+- rsync uploads and static files (documents)
+
+- set rights on static files if incorrect:
+  find . -type d -print0 | xargs -0 chmod 755
+  find . -type f -not -path \"\$0\" -print0 | xargs -0 chmod 644
+"
+
+}
+
+function init-symlinks() {
+
+  # all symlinks are set as relative!
+
+  # docroot - managed non-wordpress components, force overwrite
+  find src/docroot/* -maxdepth 0 -exec ln -nsf ../$deploy/{} "$wp" ';'
+
+  # static files under docroot - managed via FTP
+  find ../static/* -maxdepth 0 -exec ln -nsf ../static/{} "$wp" ';'
+
+  # wp-content-uploads - outside deployment, to facilitate safe reinstalls
+  ln -nsf ../../uploads "$wp/wp-content"
+
+  # wp-content - possibly sunrise.php, force overwrite
+  find src/wp-content/* -maxdepth 0 -exec ln -nsf ../../$deploy/{} "$wp/wp-content" ';'
+
+  # plugins
+  find "$wp/wp-content/plugins" -type l -delete
+  find src/plugins/* -maxdepth 0 -type d -exec ln -s ../../../$deploy/{} "$wp/wp-content/plugins" ';'
+
+  # themes
+  find "$wp/wp-content/themes" -type l -delete
+  find src/themes/* -maxdepth 0 -type d -exec ln -s ../../../$deploy/{} "$wp/wp-content/themes" ';'
+
+  # mu-plugins
+  find "$wp/wp-content/mu-plugins" -type l -delete
+  find src/mu-plugins/* -maxdepth 0 -exec ln -s ../../../$deploy/{} "$wp/wp-content/mu-plugins" ';'
+
+  # translations - plugins
+  find "$wp/wp-content/languages/plugins" -type l -delete
+  find src/languages/plugins/* -maxdepth 0 -exec ln -s ../../../../$deploy/{} "$wp/wp-content/languages/plugins" ';'
+
+  # translations - themes
+  find "$wp/wp-content/languages/themes" -type l -delete
+  find src/languages/themes/* -maxdepth 0 -exec ln -s ../../../../$deploy/{} "$wp/wp-content/languages/themes" ';'
+
+  # custom locations - function defined in .env
+
+  if [ -z "$(declare -f -F init-symlinks-custom > /dev/null)" ]; then
+    init-symlinks-custom
+  fi
+
+}
+
+function init-wp-plugins() {
+
+  while read in; do wp plugin install "$in" --force; done < ./conf/plugins.txt
+
+  for f in ./commercial/plugins/*.zip; do wp plugin install "$f"; done
+  for f in ./commercial/themes/*.zip; do wp theme install "$f"; done
+
+  # remove un-needed components
+
+  wp plugin delete hello
+  wp plugin delete akismet
+
+  wp theme delete twentyfifteen
+  wp theme delete twentysixteen
+  wp theme delete twentyseventeen
+  wp theme delete twentyeighteen
+  wp theme delete twentynineteen
+  wp theme delete twentytwenty
+
+}
+
+function init-wp-languages() {
+
+  while read in; do wp language core install "$in"; done < ./conf/languages.txt
+
+}
+
+
+function update() {
+
+  wp maintenance-mode activate
+
+  # force-update to latest git, including submodules
+  gitget
+
+  #
+  init-symlinks
+
+  if [ "$WP_SUPERCACHE" = true ] ; then
+      wp super-cache flush
+  fi
+
+  wp maintenance-mode deactivate
+
+}
+
+function update-wp() {
+
+  exclude_plugins="$(find $wp/wp-content/plugins/* -maxdepth 0 -type l -printf '%f,')"
+  exclude_themes="$(find $wp/wp-content/themes/* -maxdepth 0 -type l -printf '%f,')"
+
+  wp core update
+  wp plugin update --all --exclude=$exclude_plugins
+  wp theme update --all --exclude=$exclude_themes
+  wp core language update
+
+  # wp package install git@github.com:wp-cli/wp-super-cache-cli.git
+  # should clean also for all multisite sites
+
+  if [ "$WP_SUPERCACHE" = true ] ; then
+      wp super-cache flush
+  fi
+}
+
+function sync-wp() {
+
+  [ -z "$WP_PROD_HOME" ] || [ -z "$TARGET_HOME" ] || [ -z "$TARGET_SSH" ] || [ -z "$TARGET_PATH" ] && echo "Source or target parameters not defined in .env" && exit 1
+
+  rsync -rcpEtvzh --delete ../uploads/ $TARGET_SSH:$TARGET_PATH/uploads/
+  rsync -rcpEtvzh --delete ../static/ $TARGET_SSH:$TARGET_PATH/static/
+
+  wp db export ../live-dump.sql --path=../wordpress
+  wp db export ../local-dump.sql --ssh=$TARGET_SSH$TARGET_PATH/wordpress/
+
+  wp db reset --ssh=$TARGET_SSH$TARGET_PATH/wordpress/
+
+  rsync -rcpEtvzh ../live-dump.sql $TARGET_SSH:$TARGET_PATH/live-dump.sql
+
+  wp db import ../live-dump.sql --ssh=$TARGET_SSH$TARGET_PATH/wordpress/
+
+  wp search-replace $WP_PROD_HOME $TARGET_HOME --ssh=$TARGET_SSH$TARGET_PATH/wordpress/
+
+  wp option set tara_auth_environment development --ssh=$TARGET_SSH$TARGET_PATH/wordpress/
+
+  wp option set mil_training_grounds_environment development --ssh=$TARGET_SSH$TARGET_PATH/wordpress/
+
+
+  if [ -z "$(declare -f -F sync-wp-custom > /dev/null)" ]; then
+    sync-wp-custom
+  fi
+
+  echo "Presumably done..."
+
+}
+
+function sync-dev() {
+
+    TARGET_HOME="$WP_PRELIVE_HOME"
+    TARGET_SSH="$WP_PRELIVE_SSH"
+    TARGET_PATH="$WP_PRELIVE_PATH"
+
+    sync-wp
+
+    if [ -z "$(declare -f -F sync-wp-dev-custom > /dev/null)" ]; then
+      sync-wp-dev-custom
+    fi
+
+}
+
+function sync-prelive() {
+
+    TARGET_HOME="$WP_DEV_HOME"
+    TARGET_SSH="$WP_DEV_SSH"
+    TARGET_PATH="$WP_DEV_PATH"
+
+    sync-wp
+
+    if [ -z "$(declare -f -F sync-wp-dev-custom > /dev/null)" ]; then
+      sync-wp-dev-custom
+    fi
+}
+
+function wp-cron() {
+    wp cron event run --due-now --quiet
+}
+
+function wp-cron-multisite() {
+    site_urls=$(wp site list --field=url)
+
+    for site_url in $site_urls
+    do
+        wp cron event run --due-now  --url="$site_url" --quiet
+    done
+}
+
+function check-env() {
+
+  # ensure we have all the variables
+
+  [ ! -f ./conf/.env ] && echo "Please make provide configuration in .env, see .env.example ... for example :-)" && exit 1
+
+  source ./conf/.env
+
+  [ -z "$DB_NAME" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASSWORD" ] || [ -z "$DB_HOST" ] || [ -z "$DB_PREFIX" ] && echo "DB credentials not defined in .env" && exit 1
+
+  [ -z "$BRANCH" ] && echo "Branch not defined in .env" && exit 1
+
+}
+
+
+function gitconfig() {
+
+  git config --global status.submoduleSummary true
+  git config --global diff.submodule log
+  git config --global pull.ff only
+  git config --global pull.rebase preserve
+
+}
+
+function gitget() {
+
+  # this function has a bit too --hard (to overcome all cases of fiddling with code on server)
+
+  # ensure no local changes affect our judgement...
+  git reset --hard
+  git clean -f -d
+  git checkout "$BRANCH"
+  git pull --ff-only origin "$BRANCH"
+
+  # --recursive would recurse into vendors etc, usually not needed
+  # sync - in case submodule remotes have changed
+  git submodule sync
+  # update to the sha1 in parent repo
+  git submodule update --init
+
+  git submodule foreach git reset --hard
+  git submodule foreach git clean -f -d
+  git submodule foreach git checkout "$BRANCH"
+  git submodule foreach git pull --ff-only origin "$BRANCH"
+
+}
+
+
+if [ "$1" = "help" ] || [ -z "$1" ]; then
+	help
+fi
+
+if [ -z "$(declare -f -F "$1" > /dev/null)" ]; then
+  check-env
+  "$1" "${@:2}"
+else
+  echo "Invalid command - maybe try help?"
+fi

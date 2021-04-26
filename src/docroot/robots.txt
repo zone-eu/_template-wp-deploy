@@ -1,0 +1,13 @@
+User-agent: *
+Crawl-delay: 2
+Disallow: /*?*
+
+User-agent: AhrefsBot
+User-agent: AhrefsSiteAudit
+User-agent: SemrushBot
+User-agent: MJ12bot
+User-agent: PetalBot
+User-agent: YandexImages
+User-agent: YandexBot
+User-agent: Yandex
+Disallow: /
