@@ -55,6 +55,10 @@ if ( ! defined( 'DISABLE_WP_CRON' ) ) {
 add_filter( 'comments_open', '__return_false', 20, 2 );
 add_filter( 'pings_open', '__return_false', 20, 2 );
 
+// why publish the fact that we have Stream active?
+
+add_filter( 'wp_stream_frontend_indicator', '__return_false', 20, 2 );
+
 // xml's dead baby, xml's is dead
 
 add_filter( 'xmlrpc_enabled', '__return_false' );
