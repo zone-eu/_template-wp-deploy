@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Common deployment / update / etc handler for WordPress installations (see help below for version)
 # for debug output, uncomment:
 #set -x
 
@@ -15,15 +16,19 @@ deploy="${PWD##*/}"
 function help {
 
 	echo "
-Common deployment / update / etc handler for WordPress installations  -v 0.1 2021-04-25 / peeter@zone.ee
+Common deployment / update / etc handler for WordPress installations  -v 0.1.2 2021-05-04 / peeter@zone.ee
 
 Usage (after customizing .env):
 
 init some-db-dump.sql - initialize WP, including loading SQL
+init                  - initialize WP, presuming database dump has been already loaded
 update                - update from GIT
 update-wp             - update WP (core, plugins, languages)
+update-self           - update this script to latest version from https://github.com/zone-eu/_template-wp-deploy/
 wp-cron               - run cron for standalone WP
 wp-cron-multisite     - run cron for all WP multisite sites
+sync-prelive,
+sync-dev              - sync uploads and database to location configured in .env
 
 
 "
@@ -235,6 +240,15 @@ function update-wp() {
   if [ "$WP_SUPERCACHE" = true ] ; then
       wp super-cache flush
   fi
+}
+
+function update-self() {
+
+  wget https://raw.githubusercontent.com/zone-eu/_template-wp-deploy/master/handler -O handler
+
+  echo "Updated handler to latest version from https://github.com/zone-eu/_template-wp-deploy/"
+  echo "Check & commit if happy ;.)"
+
 }
 
 function sync-wp() {
