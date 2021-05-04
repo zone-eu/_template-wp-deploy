@@ -212,6 +212,9 @@ function update() {
       wp super-cache flush
   fi
 
+  # ensure all PHP processes notice changed symlink targeta (more graceful FPM reload should be preferred)
+  killall -rq php[0-9]{2}-cgi
+
   wp maintenance-mode deactivate
 
 }
