@@ -249,6 +249,8 @@ function update-self() {
   echo "Updated handler to latest version from https://github.com/zone-eu/_template-wp-deploy/"
   echo "Check & commit if happy ;.)"
 
+  exit 0
+
 }
 
 function sync-wp() {
@@ -372,6 +374,10 @@ function gitget() {
 
 if [ "$1" = "help" ] || [ -z "$1" ]; then
 	help
+fi
+
+if [ "$1" = "update-self" ]; then
+	update-self
 fi
 
 if [ -z "$(declare -f -F "$1" > /dev/null)" ]; then
