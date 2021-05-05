@@ -16,7 +16,7 @@ deploy="${PWD##*/}"
 function help {
 
 	echo "
-Common deployment / update / etc handler for WordPress installations  -v 0.1.3 2021-05-05 / peeter@zone.ee
+Common deployment / update / etc handler for WordPress installations  -v 0.1.4 2021-05-05 / peeter@zone.ee
 
 Usage (after customizing .env):
 
@@ -29,6 +29,7 @@ wp-cron               - run cron for standalone WP
 wp-cron-multisite     - run cron for all WP multisite sites
 sync-prelive,
 sync-dev              - sync uploads and database to location configured in .env
+rights                - set rights to 755/644  for uploads, wordpress, static & tmp
 
 "
   exit 1
@@ -249,6 +250,15 @@ function update-wp() {
   if [ "$WP_SUPERCACHE" = true ] ; then
       wp super-cache flush
   fi
+}
+
+function rights() {
+  echo "
+Setting rights to 755/644  for uploads, wordpress, static & tmp
+  "
+  find ../uploads ../wordpress ../static ../tmp -type d -print0 | xargs -0 chmod 755
+  find ../uploads ../wordpress ../static ../tmp -type f -not -path "$0" -print0 | xargs -0 chmod 644
+
 }
 
 function update-self() {
