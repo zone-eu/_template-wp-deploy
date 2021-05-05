@@ -177,11 +177,6 @@ function init-symlinks() {
 
 function init-wp-plugins() {
 
-  while read in; do wp plugin install "$in" --force; done < ./conf/plugins.txt
-
-  for f in ./commercial/plugins/*.zip; do wp plugin install "$f"; done
-  for f in ./commercial/themes/*.zip; do wp theme install "$f"; done
-
   # remove un-needed components
 
   wp plugin delete hello
@@ -193,6 +188,14 @@ function init-wp-plugins() {
   wp theme delete twentyeighteen
   wp theme delete twentynineteen
   wp theme delete twentytwenty
+
+  # install needed components
+
+  while read in; do wp plugin install "$in" --force; done < ./conf/plugins.txt
+  while read in; do wp plugin install "$in" --force; done < ./conf/themes.txt
+
+  for f in ./commercial/plugins/*.zip; do wp plugin install "$f"; done
+  for f in ./commercial/themes/*.zip; do wp theme install "$f"; done
 
 }
 
