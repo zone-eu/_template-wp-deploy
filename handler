@@ -116,6 +116,12 @@ function init() {
 
   init-wp-languages
 
+  # custom operations - function defined in .env
+
+  if [ -z "$(declare -f -F init-custom > /dev/null)" ]; then
+    init-custom
+  fi
+
   echo "
 WP has been prepared!
 
