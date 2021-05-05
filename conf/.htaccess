@@ -1,5 +1,8 @@
 # Security comes first
-#Header set x-version "0.00"
+#Header set x-htaccess-version "0.01"
+
+# Apache configuration preferred, this header should not be visible
+Header set x-check-conf "true"
 
 #AuthType Basic
 #AuthName "Prelive site. Nothing to see here!"
@@ -43,28 +46,6 @@
 <FilesMatch "(?i:xmlrpc|wp-config|wp-comments-post|readme\.|license\.|package\.|changelog\.)">
 	Require all denied
 </FilesMatch>
-
-# Protect wp-content from direct code execution (uploads, plugin/theme functionality)
-
-<LocationMatch "/wp-content/">
-    Options -ExecCGI
-    SetHandler none
-    SetHandler default-handler
-    RemoveType .php .php3 .phtml .inc
-    RemoveHandler .php .php3 .phtml .inc
-
-    <IfModule mod_php5.c>
-        php_flag engine off
-    </IfModule>
-
-    <IfModule mod_php7.c>
-        php_flag engine off
-    </IfModule>
-</LocationMatch>
-
-<LocationMatch "/wp-content/.*\.(?i:php|php3|phtml|inc)($|\.)">
-    Require all denied
-</LocationMatch>
 
 # We prefer our domains without www
 RewriteEngine On

@@ -98,8 +98,8 @@ function init() {
   mkdir -p "$wp/wp-content/languages/plugins"
   mkdir -p "$wp/wp-content/languages/themes"
 
-  cp ./conf/favicon.ico $wp
-  cp ./conf/.htaccess $wp
+  cp ./conf/.htaccess "$wp"
+  cp ./conf/.htaccess_wp-content "$wp/wp-content/.htaccess"
 
   init-symlinks
 
