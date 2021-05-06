@@ -29,6 +29,8 @@ wp-cron               - run cron for standalone WP
 wp-cron-multisite     - run cron for all WP multisite sites
 sync-prelive,
 sync-dev              - sync uploads and database to location configured in .env
+sync-plugins-prelive,
+sync-plugins-dev      - sync non-symlinked themes and plugins (mostly for commercial themes licensed to production)
 rights                - set rights to 755/644  for uploads, wordpress, static & tmp
 
 "
@@ -92,7 +94,7 @@ function init() {
     wp config set PATH_CURRENT_SITE / --type=constant
     wp config set SITE_ID_CURRENT_SITE 1 --raw --type=constant
     wp config set BLOG_ID_CURRENT_SITE 1 --raw --type=constant
-    wp config set NOBLOGREDIRECT $ZONE_WP_PROD_HOME --type=constant
+    wp config set NOBLOGREDIRECT $WP_PROD_HOME --type=constant
   fi
 
   mkdir -p "$wp/wp-content/mu-plugins"
@@ -132,8 +134,7 @@ WP has been prepared!
 - rsync uploads and static files (documents)
 
 - set rights on static files if incorrect:
-  find . -type d -print0 | xargs -0 chmod 755
-  find . -type f -not -path \"\$0\" -print0 | xargs -0 chmod 644
+  ./handler rights
 "
 
 }
@@ -199,7 +200,7 @@ function init-wp-plugins() {
   # install needed components
 
   while read in; do wp plugin install "$in" --force; done < ./conf/plugins.txt
-  while read in; do wp plugin install "$in" --force; done < ./conf/themes.txt
+  while read in; do wp theme install "$in" --force; done < ./conf/themes.txt
 
   for f in ./commercial/plugins/*.zip; do wp plugin install "$f"; done
   for f in ./commercial/themes/*.zip; do wp theme install "$f"; done
@@ -288,12 +289,7 @@ function sync-wp() {
 
   wp db import ../live-dump.sql --ssh=$TARGET_SSH$TARGET_PATH/wordpress/
 
-  wp search-replace $WP_PROD_HOME $TARGET_HOME --ssh=$TARGET_SSH$TARGET_PATH/wordpress/
-
-  wp option set tara_auth_environment development --ssh=$TARGET_SSH$TARGET_PATH/wordpress/
-
-  wp option set mil_training_grounds_environment development --ssh=$TARGET_SSH$TARGET_PATH/wordpress/
-
+  wp search-replace $WP_PROD_HOME $TARGET_HOME --ssh=$TARGET_SSH$TARGET_PATH/wordpress/ --url="$WP_PROD_HOME" --network --all-tables-with-prefix
 
   if [ -z "$(declare -f -F sync-wp-custom > /dev/null)" ]; then
     sync-wp-custom
@@ -303,7 +299,7 @@ function sync-wp() {
 
 }
 
-function sync-dev() {
+function sync-prelive() {
 
     TARGET_HOME="$WP_PRELIVE_HOME"
     TARGET_SSH="$WP_PRELIVE_SSH"
@@ -312,12 +308,11 @@ function sync-dev() {
     sync-wp
 
     if [ -z "$(declare -f -F sync-wp-dev-custom > /dev/null)" ]; then
-      sync-wp-dev-custom
+      sync-wp-prelive-custom
     fi
-
 }
 
-function sync-prelive() {
+function sync-dev() {
 
     TARGET_HOME="$WP_DEV_HOME"
     TARGET_SSH="$WP_DEV_SSH"
@@ -328,7 +323,41 @@ function sync-prelive() {
     if [ -z "$(declare -f -F sync-wp-dev-custom > /dev/null)" ]; then
       sync-wp-dev-custom
     fi
+
 }
+
+
+
+function sync-plugins() {
+
+  [ -z "$WP_PROD_HOME" ] || [ -z "$TARGET_HOME" ] || [ -z "$TARGET_SSH" ] || [ -z "$TARGET_PATH" ] && echo "Source or target parameters not defined in .env" && exit 1
+
+  rsync -rcpEtvzh --no-links --delete ../wordpress/wp-content/plugins/ $TARGET_SSH:$TARGET_PATH/wordpress/wp-content/plugins/
+  rsync -rcpEtvzh --no-links --delete ../wordpress/wp-content/themes/ $TARGET_SSH:$TARGET_PATH/wordpress/wp-content/themes/
+
+  echo "Presumably done..."
+}
+
+
+function sync-plugins-prelive() {
+
+    TARGET_HOME="$WP_PRELIVE_HOME"
+    TARGET_SSH="$WP_PRELIVE_SSH"
+    TARGET_PATH="$WP_PRELIVE_PATH"
+
+    sync-plugins
+}
+
+function sync-plugins-dev() {
+
+    TARGET_HOME="$WP_DEV_HOME"
+    TARGET_SSH="$WP_DEV_SSH"
+    TARGET_PATH="$WP_DEV_PATH"
+
+    sync-plugins
+}
+
+
 
 function wp-cron() {
     wp cron event run --due-now --quiet
