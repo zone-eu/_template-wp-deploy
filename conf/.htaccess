@@ -16,6 +16,8 @@ Header set x-check-conf "true"
 
 <IfModule mod_headers.c>
 
+    # use "Header always set" to cover all responses and avoid context merge conflicts
+
     # Not forcing subdomains until confirmed to be safe by client
     # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
     Header always set Strict-Transport-Security "max-age=31536000"
@@ -23,8 +25,23 @@ Header set x-check-conf "true"
     # WordPress admin may use iFrames, DENY not advised
     Header always set X-Frame-Options "SAMEORIGIN"
 
-    # Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline'; img-src https: data:; font-src 'self' data:; connect-src 'self' https://www.googleapis.com/youtube/; frame-ancestors 'none';"
-    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src https: data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none';"
+    # CSP should not be a long list of random sourcs, unsafe-inline and unsafe-eval... so consider them bad examples:
+    # default-src 'self';
+    # script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com https://www.googletagmanager.com https://www.google-analytics.com;
+    # style-src 'self' 'unsafe-inline';
+    # img-src 'self' https: data:;
+    # font-src 'self' data:;
+    # connect-src 'self' https://www.googleapis.com/youtube/;
+    # frame-src 'self';
+    # frame-ancestors 'none';
+
+    Header always set Content-Security-Policy "\
+default-src 'self' https: wss: ; \
+script-src 'self' https: 'unsafe-inline' 'unsafe-eval' ; \
+style-src 'self' https: 'unsafe-inline' ; \
+img-src 'self' https: data: ; \
+font-src 'self' https: data: ; \
+    "
 
     # Removed after CS report, replaced with CSP
     #Header always set X-XSS-Protection "1; mode=block"
@@ -32,13 +49,14 @@ Header set x-check-conf "true"
 
     # Header always set Referrer-Policy strict-origin-when-cross-origin
 
-	# Header always set Access-Control-Allow-Origin "expr=https://%{ENV:SELF}"
+    # Header always set Access-Control-Allow-Origin "expr=https://%{ENV:SELF}"
+    # Header always set Access-Control-Allow-Origin "*"
 
-# 	If we need to un-publish actual file change times for some reason
-#	Header unset Last-modified
-#	Header unset ETAG
+#     If we need to un-publish actual file change times for some reason
+#    Header unset Last-modified
+#    Header unset ETAG
 
-#	Header set Expect-CT "max-age=0, report-uri=\"https://report.example.com/r/d/ct/example.com\"" env=HTTPS
+#    Header set Expect-CT "max-age=0, report-uri=\"https://report.example.com/r/d/ct/example.com\"" env=HTTPS
 </IfModule>
 
 # Protect misc files from direct access
