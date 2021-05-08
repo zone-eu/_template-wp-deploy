@@ -129,7 +129,7 @@ function init() {
 WP has been prepared!
 
 - replace URIs:
-  wp search-replace 'prelive.example.com' 'example.com' --network
+  wp search-replace 'prelive.example.com' 'example.com' --network --all-tables-with-prefix
 
 - rsync uploads and static files (documents)
 
