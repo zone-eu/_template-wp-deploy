@@ -43,7 +43,7 @@ Header set x-check-conf "true"
 
 # Protect misc files from direct access
 
-<FilesMatch "(?i:xmlrpc|wp-config|wp-comments-post|readme\.|license\.|package\.|changelog\.)">
+<FilesMatch "(?i:xmlrpc|wp-config|wp-comments-post|readme\.|license\.|package\.|changelog\.|debug\.log)">
 	Require all denied
 </FilesMatch>
 
