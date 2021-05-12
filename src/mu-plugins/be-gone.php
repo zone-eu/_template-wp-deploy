@@ -33,7 +33,7 @@ if ( ! defined( 'DISALLOW_FILE_EDIT' ) ) {
 // disable also plugin/theme/core update and install (set to false in wp-config to override)
 // IMORTANT: make sure your updates are working using wp-cli (Elementor PRO seems to check it )!
 
-if ( ! defined( 'DISALLOW_FILE_MODS' ) && php_sapi_name() !== 'cli') {
+if ( ! defined( 'DISALLOW_FILE_MODS' ) && php_sapi_name() !== 'cli' ) {
 	define( 'DISALLOW_FILE_MODS', true );
 }
 
@@ -76,6 +76,8 @@ if ( ! function_exists( 'krt_head_cleanup' ) ) {
 	function krt_head_cleanup() {
 		add_theme_support( 'automatic-feed-links' );
 		add_filter( 'feed_links_show_comments_feed', '__return_false' );
+
+		remove_action( 'wp_head', 'wp_generator' ); // meta generator
 
 		remove_action( 'wp_head', 'feed_links', 2 ); // post and comment feeds
 		remove_action( 'wp_head', 'feed_links_extra', 3 ); // category, author, and other extra feeds
@@ -162,43 +164,43 @@ function krt_disable_author_archives() {
 
 // customize cookie names
 
-	if ( ! defined( 'COOKIEHASH' ) ) {
-		$siteurl = get_site_option( 'siteurl' );
-		if ( $siteurl ) {
-			define( 'COOKIEHASH', md5( $siteurl ) );
-		} else {
-			define( 'COOKIEHASH', '' );
-		}
+if ( ! defined( 'COOKIEHASH' ) ) {
+	$siteurl = get_site_option( 'siteurl' );
+	if ( $siteurl ) {
+		define( 'COOKIEHASH', md5( $siteurl ) );
+	} else {
+		define( 'COOKIEHASH', '' );
 	}
+}
 
-	if ( ! defined( 'USER_COOKIE' ) ) {
-		define( 'USER_COOKIE', '__Host-wordpressuser_' . COOKIEHASH );
-	}
+if ( ! defined( 'USER_COOKIE' ) ) {
+	define( 'USER_COOKIE', '__Host-wordpressuser_' . COOKIEHASH );
+}
 
-	if ( ! defined( 'PASS_COOKIE' ) ) {
-		define( 'PASS_COOKIE', '__Host-wordpresspass_' . COOKIEHASH );
-	}
+if ( ! defined( 'PASS_COOKIE' ) ) {
+	define( 'PASS_COOKIE', '__Host-wordpresspass_' . COOKIEHASH );
+}
 
-	if ( ! defined( 'AUTH_COOKIE' ) ) {
-		define( 'AUTH_COOKIE', '__Host-wordpress_' . COOKIEHASH );
-	}
+if ( ! defined( 'AUTH_COOKIE' ) ) {
+	define( 'AUTH_COOKIE', '__Host-wordpress_' . COOKIEHASH );
+}
 
-	if ( ! defined( 'SECURE_AUTH_COOKIE' ) ) {
-		// this is set with path, can't have __Host
-		define( 'SECURE_AUTH_COOKIE', '__Secure-wordpress_sec_' . COOKIEHASH );
-	}
+if ( ! defined( 'SECURE_AUTH_COOKIE' ) ) {
+	// this is set with path, can't have __Host
+	define( 'SECURE_AUTH_COOKIE', '__Secure-wordpress_sec_' . COOKIEHASH );
+}
 
-	if ( ! defined( 'LOGGED_IN_COOKIE' ) ) {
-		define( 'LOGGED_IN_COOKIE', '__Host-wordpress_logged_in_' . COOKIEHASH );
-	}
+if ( ! defined( 'LOGGED_IN_COOKIE' ) ) {
+	define( 'LOGGED_IN_COOKIE', '__Host-wordpress_logged_in_' . COOKIEHASH );
+}
 
-	if ( ! defined( 'TEST_COOKIE' ) ) {
-		define( 'TEST_COOKIE', '__Host-wordpress_test_cookie' );
-	}
+if ( ! defined( 'TEST_COOKIE' ) ) {
+	define( 'TEST_COOKIE', '__Host-wordpress_test_cookie' );
+}
 
-	if ( ! defined( 'RECOVERY_MODE_COOKIE' ) ) {
-		/**
-		 * @since 5.2.0
-		 */
-		define( 'RECOVERY_MODE_COOKIE', '__Host-wordpress_rec_' . COOKIEHASH );
-	}
+if ( ! defined( 'RECOVERY_MODE_COOKIE' ) ) {
+	/**
+	 * @since 5.2.0
+	 */
+	define( 'RECOVERY_MODE_COOKIE', '__Host-wordpress_rec_' . COOKIEHASH );
+}
