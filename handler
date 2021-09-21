@@ -240,7 +240,7 @@ function update-wp() {
   exclude_plugins="$(find $wp/wp-content/plugins/* -maxdepth 0 -type l -printf '%f,')"
   exclude_themes="$(find $wp/wp-content/themes/* -maxdepth 0 -type l -printf '%f,')"
 
-  wp core update
+  wp core update --locale=en_US
   wp plugin update --all --exclude=$exclude_plugins
   wp theme update --all --exclude=$exclude_themes
   wp core language update
